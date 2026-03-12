@@ -1,0 +1,146 @@
+version: "3.9"
+
+services:
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: authservice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d authservice"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+
+  postgres-user:
+    image: postgres:16-alpine
+    container_name: postgres-user
+    environment:
+      POSTGRES_DB: userservice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d userservice"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_user_data:/var/lib/postgresql/data
+
+  postgres-order:
+    image: postgres:16-alpine
+    container_name: postgres-order
+    environment:
+      POSTGRES_DB: orderservice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orderservice"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-service:
+    build:
+      context: ../userservice
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    environment:
+      DB_URL: jdbc:postgresql://postgres-user:5432/userservice
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: ../authservice
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      DB_URL: jdbc:postgresql://postgres-auth:5432/authservice
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: your-very-strong-32-bytes-minimum-secret-key
+      USER_SERVICE_URL: http://user-service:8082
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+
+  order-service:
+    build:
+      context: ../orderservice
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    environment:
+      DB_URL: jdbc:postgresql://postgres-order:5432/orderservice
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      USER_SERVICE_BASE_URL: http://user-service:8082
+      USER_SERVICE_CONNECT_TIMEOUT_MS: 2000
+      USER_SERVICE_READ_TIMEOUT_MS: 3000
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      ORDER_SERVICE_URL: http://order-service:8083
+    depends_on:
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+
+volumes:
+  postgres_auth_data:
+  postgres_user_data:
+  postgres_order_data:
