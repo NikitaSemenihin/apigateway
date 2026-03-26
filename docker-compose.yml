@@ -53,7 +53,7 @@ services:
       - postgres_order_data:/var/lib/postgresql/data
 
   mongodb-payment:
-    image: mongo:8
+    image: mongo:7.0
     container_name: mongodb-payment
     ports:
       - "27017:27017"
@@ -190,13 +190,13 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:8084
     depends_on:
       auth-service:
-        condition: service_started
+        condition: service_healthy
       user-service:
-        condition: service_started
+        condition: service_healthy
       order-service:
-        condition: service_started
+        condition: service_healthy
       payment-service:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_auth_data:
