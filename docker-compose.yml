@@ -116,6 +116,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8082/actuator/health/readiness" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   auth-service:
     build:
@@ -135,6 +141,12 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/actuator/health/readiness" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   order-service:
     build:
@@ -175,6 +187,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8084/actuator/health/readiness" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   api-gateway:
     build:
