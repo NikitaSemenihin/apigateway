@@ -144,3 +144,4 @@ volumes:
   postgres_auth_data:
   postgres_user_data:
   postgres_order_data:
+  mongodb_payment_data:
